@@ -1,0 +1,647 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ story.title }} - Storybook Studio{% endblock %}
+
+{% block extra_head %}
+<style>
+    .page-spread-container {
+        perspective: 1200px;
+    }
+    .book-paper-left {
+        box-shadow: inset -15px 0 25px -10px rgba(0, 0, 0, 0.4);
+    }
+    .book-paper-right {
+        box-shadow: inset 15px 0 25px -10px rgba(0, 0, 0, 0.4);
+    }
+    .story-reading-font {
+        font-family: 'Playfair Display', Georgia, Cambria, serif;
+    }
+    .first-letter-drop::first-letter {
+        font-size: 3.2rem;
+        float: left;
+        line-height: 0.8;
+        padding-right: 0.5rem;
+        padding-top: 0.2rem;
+        font-weight: 700;
+        color: #38bdf8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6" id="story-workspace">
+
+    <!-- Top Workspace Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'story_index' %}" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition-colors" title="Back to Library">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            </a>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <h1 class="text-lg font-bold text-white tracking-tight" id="workspace-title">{{ story.title }}</h1>
+                    <span id="status-pill" class="px-2 py-0.5 rounded text-[11px] font-semibold border {% if story.state.is_complete %}bg-emerald-950/60 border-emerald-800 text-emerald-300{% elif story.is_running %}bg-sky-950/60 border-sky-800 text-sky-300 animate-pulse{% elif story.state.status == 'failed' %}bg-rose-950/60 border-rose-800 text-rose-300{% else %}bg-slate-800 border-slate-700 text-slate-300{% endif %}">
+                        {% if story.state.is_complete %}Ready{% elif story.is_running %}Generating...{% elif story.state.status == 'failed' %}Failed{% else %}Draft{% endif %}
+                    </span>
+                </div>
+                <p class="text-xs text-slate-400 truncate max-w-xl">"{{ story.concept }}"</p>
+            </div>
+        </div>
+
+        <!-- View Tabs & Actions -->
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- View Mode Switcher -->
+            <div class="flex items-center p-1 bg-slate-900 border border-slate-800 rounded-lg">
+                <button id="tab-reader" class="view-tab active px-3 py-1 rounded text-xs font-medium bg-slate-800 text-white shadow-sm flex items-center space-x-1.5 transition-all">
+                    <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+                    <span>Reader</span>
+                </button>
+                <button id="tab-grid" class="view-tab px-3 py-1 rounded text-xs font-medium text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 transition-all">
+                    <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                    <span>All Pages</span>
+                </button>
+                {% if story.character_bible %}
+                <button id="tab-bible" class="view-tab px-3 py-1 rounded text-xs font-medium text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 transition-all">
+                    <i data-lucide="users" class="w-3.5 h-3.5"></i>
+                    <span>Characters</span>
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- Context Actions -->
+            <div class="flex items-center space-x-2">
+                {% if not story.state.is_complete and not story.is_running %}
+                <form method="POST" action="{% url 'resume_story' story.story_id %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-semibold text-white shadow-sm flex items-center space-x-1.5 transition-colors">
+                        <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                        <span>Resume Generation</span>
+                    </button>
+                </form>
+                {% endif %}
+
+                <button id="btn-narrate" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-200 hover:text-white flex items-center space-x-1.5 transition-colors" title="Read current page aloud">
+                    <i data-lucide="volume-2" class="w-3.5 h-3.5 text-sky-400"></i>
+                    <span id="narrate-label">Read Aloud</span>
+                </button>
+
+                <button id="btn-open-redo" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-200 hover:text-white flex items-center space-x-1.5 transition-colors" title="Redo current page illustration">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span>Redo Page</span>
+                </button>
+
+                {% if story.has_pdf %}
+                <a href="{% url 'download_pdf' story.story_id %}" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-semibold text-white shadow-sm flex items-center space-x-1.5 transition-colors">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                    <span>Download PDF</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Interrupted / Error Alert Banner with Resume Trigger -->
+    <div id="error-alert-banner" class="{% if story.is_running or story.state.is_complete %}hidden{% endif %} p-4 rounded-xl bg-slate-900 border border-amber-600/50 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-start space-x-3">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5"></i>
+            <div>
+                <h4 class="text-xs font-bold text-white">Generation Incomplete or Interrupted</h4>
+                <p class="text-xs text-slate-400 mt-0.5" id="error-banner-desc">
+                    {% if story.state.last_error %}{{ story.state.last_error }}{% else %}Generation was paused or stopped before all pages were completed.{% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2 flex-shrink-0">
+            <form method="POST" action="{% url 'resume_story' story.story_id %}">
+                {% csrf_token %}
+                <button type="submit" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 active:bg-sky-700 shadow-sm transition-all flex items-center space-x-1.5">
+                    <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                    <span>Resume ({% if story.progress_percentage %}{{ story.progress_percentage }}%{% else %}Continue{% endif %})</span>
+                </button>
+            </form>
+            <form method="POST" action="{% url 'restart_story' story.story_id %}" onsubmit="return confirm('Restart book from the beginning? Existing images will be regenerated.');">
+                {% csrf_token %}
+                <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-all flex items-center space-x-1.5">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    <span>Restart from Scratch</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Live Generation Notification Banner (Visible when job is active) -->
+    <div id="live-progress-banner" class="{% if not story.is_running and story.state.is_complete %}hidden{% endif %} p-4 rounded-xl bg-slate-900 border border-sky-800/60 shadow-lg space-y-3">
+        <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2.5">
+                <i data-lucide="loader" class="w-4 h-4 text-sky-400 animate-spin"></i>
+                <span class="font-semibold text-white" id="live-stage-text">
+                    {{ story.progress_message|default:"Processing storybook generation in background..." }}
+                </span>
+            </div>
+            <span class="font-mono text-slate-400" id="live-percentage">{{ story.progress_percentage|default:"5" }}%</span>
+        </div>
+        <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
+            <div id="live-progress-bar" class="h-full bg-sky-500 rounded-full transition-all duration-300" style="width: {{ story.progress_percentage|default:'5' }}%;"></div>
+        </div>
+    </div>
+
+    <!-- VIEW MODE 1: BOOK READER -->
+    <div id="view-reader-container" class="space-y-4">
+        
+        <!-- Book Spread Stage -->
+        <div class="relative w-full page-spread-container flex items-center justify-center min-h-[500px]">
+
+            <!-- Prev Page Button -->
+            <button id="btn-prev" class="absolute -left-3 sm:-left-5 z-20 w-10 h-10 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 disabled:pointer-events-none">
+                <i data-lucide="chevron-left" class="w-5 h-5"></i>
+            </button>
+
+            <!-- Book Double Spread -->
+            <div id="book-spread" class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 rounded-2xl overflow-hidden book-shadow border border-slate-800 bg-slate-900 min-h-[500px]">
+
+                <!-- Left Page: Illustration -->
+                <div id="reader-art-page" class="relative bg-slate-950 flex items-center justify-center overflow-hidden book-paper-left min-h-[380px] md:min-h-[520px] group cursor-pointer" title="Click to zoom image">
+                    <img id="reader-art-img" src="" alt="Page Illustration" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.01]">
+                    
+                    <div id="reader-art-loading" class="hidden flex-col items-center justify-center p-8 text-center text-slate-500">
+                        <i data-lucide="loader" class="w-8 h-8 animate-spin text-sky-400 mb-2"></i>
+                        <span class="text-xs font-medium text-slate-400">Rendering illustration...</span>
+                    </div>
+
+                    <div class="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/80 backdrop-blur-md px-2 py-1 rounded text-[10px] text-slate-300 border border-slate-700">
+                        <i data-lucide="zoom-in" class="w-3 h-3 inline mr-1"></i> Expand Artwork
+                    </div>
+                </div>
+
+                <!-- Right Page: Story Typography -->
+                <div id="reader-text-page" class="bg-slate-900 p-8 sm:p-12 flex flex-col justify-between book-paper-right border-t md:border-t-0 md:border-l border-slate-800/80">
+                    <div class="space-y-6">
+                        <div class="flex items-center justify-between pb-4 border-b border-slate-800/60">
+                            <span id="reader-page-badge" class="px-2.5 py-0.5 rounded text-xs font-semibold bg-sky-950 text-sky-300 border border-sky-800/50">
+                                Page 1
+                            </span>
+                            <span class="text-xs font-mono text-slate-500" id="reader-page-counter">1 of 12</span>
+                        </div>
+
+                        <!-- Story text -->
+                        <div class="py-2">
+                            <p id="reader-story-text" class="story-reading-font first-letter-drop text-xl sm:text-2xl text-slate-100 leading-relaxed sm:leading-loose">
+                                Loading page...
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Page Footer -->
+                    <div class="pt-6 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-500">
+                        <span class="font-serif italic truncate max-w-[200px]" id="reader-footer-title">{{ story.title }}</span>
+                        <div class="flex items-center space-x-2">
+                            <span>Use <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">←</kbd> <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">→</kbd> to turn</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Next Page Button -->
+            <button id="btn-next" class="absolute -right-3 sm:-right-5 z-20 w-10 h-10 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-20 disabled:pointer-events-none">
+                <i data-lucide="chevron-right" class="w-5 h-5"></i>
+            </button>
+
+        </div>
+
+        <!-- Bottom Scrubber & Thumbnails Strip -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3 overflow-x-auto">
+            <div class="flex items-center space-x-2.5" id="thumbnails-track">
+                <!-- Dynamically populated or rendered -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- VIEW MODE 2: ALL PAGES GRID -->
+    <div id="view-grid-container" class="hidden space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-slate-300">Contact Sheet Overview</h2>
+            <span class="text-xs text-slate-500" id="grid-page-total-label">0 Pages</span>
+        </div>
+
+        <div id="all-pages-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <!-- Grid cards injected via JS -->
+        </div>
+    </div>
+
+    <!-- VIEW MODE 3: CHARACTER GUIDE -->
+    {% if story.character_bible %}
+    <div id="view-bible-container" class="hidden space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-slate-300">Character Bible & Visual Reference</h2>
+            <span class="text-xs text-slate-500">{{ story.character_bible.characters|length }} Characters</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for char in story.character_bible.characters %}
+            <div class="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-base text-sky-400">{{ char.name }}</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">{{ char.role }}</span>
+                </div>
+                <div class="text-xs text-slate-300 space-y-1.5">
+                    <p><strong class="text-slate-400">Appearance:</strong> {{ char.appearance }}</p>
+                    {% if char.clothing %}
+                    <p><strong class="text-slate-400">Clothing:</strong> {{ char.clothing }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Image Zoom Modal -->
+<div id="zoom-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+        <button id="btn-close-zoom" class="absolute -top-10 right-0 text-slate-400 hover:text-white text-sm font-medium flex items-center space-x-1">
+            <i data-lucide="x" class="w-5 h-5"></i>
+            <span>Close</span>
+        </button>
+        <img id="zoom-img" src="" alt="Full Resolution Artwork" class="rounded-xl max-h-[85vh] max-w-full object-contain shadow-2xl border border-slate-800">
+    </div>
+</div>
+
+<!-- Redo Page Illustration Modal -->
+<div id="redo-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 rounded-2xl max-w-lg w-full p-6 border border-slate-800 space-y-5 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="refresh-cw" class="w-4 h-4 text-amber-400"></i>
+                <h3 class="font-semibold text-base text-white" id="redo-modal-title">Redo Illustration</h3>
+            </div>
+            <button id="btn-close-redo" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <form method="POST" action="{% url 'regenerate_page' story.story_id %}" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="page_number" id="input-redo-page-num" value="1">
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Image Prompt for this Page
+                </label>
+                <textarea name="custom_prompt" id="textarea-redo-prompt" rows="4" 
+                          class="w-full p-3 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500 resize-none font-sans leading-relaxed"></textarea>
+                <p class="text-[11px] text-slate-500 mt-1">Leave unchanged to redraw with existing prompt, or tweak the details.</p>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 pt-2">
+                <button type="button" id="btn-cancel-redo" class="px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white shadow-sm transition-all">
+                    Redraw Illustration
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Safe JSON Payload -->
+{{ story.pages|json_script:"story-pages-data" }}
+
+<script>
+    const STORY_ID = "{{ story.story_id }}";
+    let storyPages = JSON.parse(document.getElementById('story-pages-data').textContent || '[]');
+    let currentIndex = 0;
+    let isSpeaking = false;
+
+    // Elements
+    const readerArtImg = document.getElementById("reader-art-img");
+    const readerArtLoading = document.getElementById("reader-art-loading");
+    const readerStoryText = document.getElementById("reader-story-text");
+    const readerPageBadge = document.getElementById("reader-page-badge");
+    const readerPageCounter = document.getElementById("reader-page-counter");
+    const btnPrev = document.getElementById("btn-prev");
+    const btnNext = document.getElementById("btn-next");
+    const thumbnailsTrack = document.getElementById("thumbnails-track");
+
+    // Modal elements
+    const zoomModal = document.getElementById("zoom-modal");
+    const zoomImg = document.getElementById("zoom-img");
+    const readerArtPage = document.getElementById("reader-art-page");
+    const btnCloseZoom = document.getElementById("btn-close-zoom");
+
+    const redoModal = document.getElementById("redo-modal");
+    const btnOpenRedo = document.getElementById("btn-open-redo");
+    const btnCloseRedo = document.getElementById("btn-close-redo");
+    const btnCancelRedo = document.getElementById("btn-cancel-redo");
+    const inputRedoPageNum = document.getElementById("input-redo-page-num");
+    const textareaRedoPrompt = document.getElementById("textarea-redo-prompt");
+    const redoModalTitle = document.getElementById("redo-modal-title");
+
+    // Tab switcher
+    const tabReader = document.getElementById("tab-reader");
+    const tabGrid = document.getElementById("tab-grid");
+    const tabBible = document.getElementById("tab-bible");
+    const viewReaderContainer = document.getElementById("view-reader-container");
+    const viewGridContainer = document.getElementById("view-grid-container");
+    const viewBibleContainer = document.getElementById("view-bible-container");
+
+    function switchView(activeTab, activeContainer) {
+        document.querySelectorAll(".view-tab").forEach(t => {
+            t.classList.remove("active", "bg-slate-800", "text-white");
+            t.classList.add("text-slate-400");
+        });
+        activeTab.classList.add("active", "bg-slate-800", "text-white");
+        activeTab.classList.remove("text-slate-400");
+
+        [viewReaderContainer, viewGridContainer, viewBibleContainer].forEach(c => {
+            if (c) c.classList.add("hidden");
+        });
+        activeContainer.classList.remove("hidden");
+    }
+
+    if (tabReader) tabReader.addEventListener("click", () => switchView(tabReader, viewReaderContainer));
+    if (tabGrid) {
+        tabGrid.addEventListener("click", () => {
+            switchView(tabGrid, viewGridContainer);
+            renderGrid();
+        });
+    }
+    if (tabBible) tabBible.addEventListener("click", () => switchView(tabBible, viewBibleContainer));
+
+    function renderReaderPage(index) {
+        if (storyPages.length === 0) {
+            readerStoryText.textContent = "Writing story narrative...";
+            readerPageBadge.textContent = "Draft";
+            readerPageCounter.textContent = "-";
+            readerArtImg.classList.add("hidden");
+            readerArtLoading.classList.remove("hidden");
+            btnPrev.disabled = true;
+            btnNext.disabled = true;
+            return;
+        }
+
+        if (index < 0) index = 0;
+        if (index >= storyPages.length) index = storyPages.length - 1;
+        currentIndex = index;
+
+        const page = storyPages[currentIndex];
+
+        // Animate page turn with GSAP
+        gsap.to("#book-spread", {
+            duration: 0.2,
+            opacity: 0.6,
+            scale: 0.99,
+            ease: "power2.in",
+            onComplete: () => {
+                if (page.has_image && page.image_url) {
+                    readerArtImg.src = page.image_url;
+                    readerArtImg.classList.remove("hidden");
+                    readerArtLoading.classList.add("hidden");
+                } else {
+                    readerArtImg.classList.add("hidden");
+                    readerArtLoading.classList.remove("hidden");
+                }
+
+                readerStoryText.textContent = page.text || "Drafting text...";
+                readerPageBadge.textContent = `Page ${page.page_number}`;
+                readerPageCounter.textContent = `${page.page_number} of ${storyPages.length}`;
+
+                btnPrev.disabled = (currentIndex === 0);
+                btnNext.disabled = (currentIndex === storyPages.length - 1);
+
+                renderThumbnails();
+
+                gsap.to("#book-spread", {
+                    duration: 0.25,
+                    opacity: 1,
+                    scale: 1,
+                    ease: "power2.out"
+                });
+            }
+        });
+    }
+
+    function renderThumbnails() {
+        thumbnailsTrack.innerHTML = "";
+        storyPages.forEach((p, idx) => {
+            const btn = document.createElement("button");
+            const isActive = (idx === currentIndex);
+            btn.className = `flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all relative group ${
+                isActive ? 'border-sky-500 scale-105 shadow-md shadow-sky-950' : 'border-slate-800 opacity-60 hover:opacity-100'
+            }`;
+            btn.innerHTML = `
+                ${p.has_image ? `<img src="${p.image_url}" class="w-full h-full object-cover">` : `<div class="w-full h-full bg-slate-950 flex items-center justify-center text-[10px] text-slate-500 font-bold">P.${p.page_number}</div>`}
+                <span class="absolute bottom-0 right-0 px-1 bg-black/80 text-[9px] font-bold text-slate-300">${p.page_number}</span>
+            `;
+            btn.addEventListener("click", () => renderReaderPage(idx));
+            thumbnailsTrack.appendChild(btn);
+        });
+    }
+
+    function renderGrid() {
+        const grid = document.getElementById("all-pages-grid");
+        const totalLabel = document.getElementById("grid-page-total-label");
+        if (!grid) return;
+
+        totalLabel.textContent = `${storyPages.length} Pages Total`;
+        grid.innerHTML = "";
+
+        storyPages.forEach((p, idx) => {
+            const card = document.createElement("div");
+            card.className = "p-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between space-y-3";
+            card.innerHTML = `
+                <div class="relative aspect-square w-full bg-slate-950 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer group">
+                    ${p.has_image ? `<img src="${p.image_url}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">` : `<span class="text-xs text-slate-500">Generating...</span>`}
+                    <span class="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-bold text-white">Page ${p.page_number}</span>
+                </div>
+                <p class="text-xs text-slate-300 line-clamp-2 italic">"${p.text || ''}"</p>
+                <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                    <button class="btn-jump text-sky-400 hover:text-sky-300 font-medium">Read Page</button>
+                    <button class="btn-redo text-slate-400 hover:text-amber-400 flex items-center space-x-1">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                        <span>Redo</span>
+                    </button>
+                </div>
+            `;
+
+            card.querySelector(".relative").addEventListener("click", () => {
+                switchView(tabReader, viewReaderContainer);
+                renderReaderPage(idx);
+            });
+            card.querySelector(".btn-jump").addEventListener("click", () => {
+                switchView(tabReader, viewReaderContainer);
+                renderReaderPage(idx);
+            });
+            card.querySelector(".btn-redo").addEventListener("click", () => {
+                openRedoModal(p);
+            });
+
+            grid.appendChild(card);
+        });
+        lucide.createIcons();
+    }
+
+    // Modal Actions
+    function openRedoModal(page) {
+        inputRedoPageNum.value = page.page_number;
+        redoModalTitle.textContent = `Redo Illustration for Page ${page.page_number}`;
+        textareaRedoPrompt.value = page.image_prompt || "";
+        redoModal.classList.remove("hidden");
+        redoModal.classList.add("flex");
+    }
+
+    btnOpenRedo.addEventListener("click", () => {
+        if (storyPages[currentIndex]) {
+            openRedoModal(storyPages[currentIndex]);
+        }
+    });
+
+    [btnCloseRedo, btnCancelRedo].forEach(b => {
+        if (b) b.addEventListener("click", () => {
+            redoModal.classList.add("hidden");
+            redoModal.classList.remove("flex");
+        });
+    });
+
+    // Zoom Image Modal
+    readerArtPage.addEventListener("click", () => {
+        const page = storyPages[currentIndex];
+        if (page && page.has_image) {
+            zoomImg.src = page.image_url;
+            zoomModal.classList.remove("hidden");
+            zoomModal.classList.add("flex");
+        }
+    });
+
+    btnCloseZoom.addEventListener("click", () => {
+        zoomModal.classList.add("hidden");
+        zoomModal.classList.remove("flex");
+    });
+
+    // Navigation triggers
+    btnPrev.addEventListener("click", () => renderReaderPage(currentIndex - 1));
+    btnNext.addEventListener("click", () => renderReaderPage(currentIndex + 1));
+
+    // Keyboard support
+    document.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+        if (e.key === "ArrowLeft" || e.key === "j") renderReaderPage(currentIndex - 1);
+        if (e.key === "ArrowRight" || e.key === "k" || e.key === " ") renderReaderPage(currentIndex + 1);
+        if (e.key === "Escape") {
+            zoomModal.classList.add("hidden");
+            zoomModal.classList.remove("flex");
+            redoModal.classList.add("hidden");
+            redoModal.classList.remove("flex");
+        }
+    });
+
+    // Voice Narration
+    const btnNarrate = document.getElementById("btn-narrate");
+    const narrateLabel = document.getElementById("narrate-label");
+
+    if ('speechSynthesis' in window) {
+        btnNarrate.addEventListener("click", () => {
+            if (isSpeaking) {
+                window.speechSynthesis.cancel();
+                isSpeaking = false;
+                narrateLabel.textContent = "Read Aloud";
+                btnNarrate.classList.remove("bg-sky-600", "text-white");
+            } else {
+                const text = storyPages[currentIndex]?.text;
+                if (!text) return;
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.9;
+                utterance.onend = () => {
+                    isSpeaking = false;
+                    narrateLabel.textContent = "Read Aloud";
+                    btnNarrate.classList.remove("bg-sky-600", "text-white");
+                };
+                window.speechSynthesis.speak(utterance);
+                isSpeaking = true;
+                narrateLabel.textContent = "Stop";
+                btnNarrate.classList.add("bg-sky-600", "text-white");
+            }
+        });
+    } else {
+        btnNarrate.classList.add("hidden");
+    }
+
+    // Real-Time SSE Updates
+    function updateLiveState(data) {
+        if (!data) return;
+
+        if (data.pages && data.pages.length > 0) {
+            storyPages = data.pages;
+            renderReaderPage(currentIndex);
+            if (viewGridContainer && !viewGridContainer.classList.contains("hidden")) {
+                renderGrid();
+            }
+        }
+
+        const banner = document.getElementById("live-progress-banner");
+        const stageText = document.getElementById("live-stage-text");
+        const percentageLabel = document.getElementById("live-percentage");
+        const progressBar = document.getElementById("live-progress-bar");
+        const statusPill = document.getElementById("status-pill");
+
+        const pct = data.percentage !== undefined ? data.percentage : (data.is_complete ? 100 : 50);
+        const msg = data.progress_message || (data.is_complete ? "Complete" : "Generating storybook...");
+
+        if (progressBar) progressBar.style.width = `${pct}%`;
+        if (percentageLabel) percentageLabel.textContent = `${pct}%`;
+        if (stageText) stageText.textContent = msg;
+
+        if (data.is_complete || pct >= 100) {
+            if (banner) {
+                setTimeout(() => banner.classList.add("hidden"), 1000);
+            }
+            if (statusPill) {
+                statusPill.textContent = "Ready";
+                statusPill.className = "px-2 py-0.5 rounded text-[11px] font-semibold border bg-emerald-950/60 border-emerald-800 text-emerald-300";
+            }
+        } else if (data.is_running || pct < 100) {
+            if (banner) banner.classList.remove("hidden");
+            if (statusPill) {
+                statusPill.textContent = `${pct}% Generating`;
+                statusPill.className = "px-2 py-0.5 rounded text-[11px] font-semibold border bg-sky-950/60 border-sky-800 text-sky-300 animate-pulse";
+            }
+        }
+    }
+
+    function initSSE() {
+        const evtSource = new EventSource(`/story/${STORY_ID}/events/`);
+        
+        evtSource.onmessage = (event) => {
+            try {
+                const payload = JSON.parse(event.data);
+                if (payload.event === "progress" && payload.data) {
+                    const d = payload.data;
+                    updateLiveState({
+                        percentage: d.percentage,
+                        progress_message: d.message,
+                        is_running: true,
+                        is_complete: d.percentage >= 100
+                    });
+                }
+            } catch (e) {}
+            
+            fetch(`/story/${STORY_ID}/status/`)
+                .then(r => r.json())
+                .then(updateLiveState)
+                .catch(console.error);
+        };
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        renderReaderPage(0);
+        initSSE();
+    });
+</script>
+{% endblock %}

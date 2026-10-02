@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings & Style - Storybook Studio{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div class="space-y-1 pb-4 border-b border-slate-800">
+        <h1 class="text-xl font-bold text-white tracking-tight">Studio Configuration & Style Specification</h1>
+        <p class="text-xs text-slate-400">Manage Gemini AI models, retry policies, and global style guidelines for story text and artwork.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left 2 Cols: Markdown Style Spec Editor -->
+        <div class="lg:col-span-2 space-y-4">
+            <div class="rounded-xl bg-slate-900 border border-slate-800 p-5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-white flex items-center space-x-2">
+                        <i data-lucide="file-text" class="w-4 h-4 text-sky-400"></i>
+                        <span>Style Specification (`input/style_spec.md`)</span>
+                    </h2>
+                    <span class="text-[11px] text-slate-500 font-mono">Markdown</span>
+                </div>
+
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    This file is sent to Gemini as the authority for story tone, target reading age, page count, and illustration aesthetics.
+                </p>
+
+                <form method="POST" action="{% url 'settings' %}" class="space-y-3">
+                    {% csrf_token %}
+                    <div>
+                        <textarea name="style_spec" id="style_spec" rows="18" 
+                                  class="w-full p-3.5 rounded-lg bg-slate-950 font-mono text-xs text-slate-200 border border-slate-800 focus:outline-none focus:border-sky-500 leading-relaxed resize-y">{{ style_spec }}</textarea>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" class="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 active:bg-sky-700 shadow-sm transition-all flex items-center space-x-1.5">
+                            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                            <span>Save Changes</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right Col: System & Active Config -->
+        <div class="space-y-4">
+            <div class="rounded-xl bg-slate-900 border border-slate-800 p-5 space-y-4">
+                <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Active Configuration</h3>
+
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <span class="text-slate-500 block">AI Provider:</span>
+                        <span class="font-mono text-slate-200 font-medium">{{ config.provider.name|upper }}</span>
+                    </div>
+
+                    <div>
+                        <span class="text-slate-500 block">Text Model:</span>
+                        <span class="font-mono text-sky-300 font-medium">{{ config.provider.text_model }}</span>
+                    </div>
+
+                    <div>
+                        <span class="text-slate-500 block">Image Model:</span>
+                        <span class="font-mono text-sky-300 font-medium">{{ config.provider.image_model }}</span>
+                    </div>
+
+                    <div>
+                        <span class="text-slate-500 block">Aspect Ratio:</span>
+                        <span class="font-mono text-slate-200">{{ config.images.aspect_ratio }}</span>
+                    </div>
+
+                    <div>
+                        <span class="text-slate-500 block">Reference Images:</span>
+                        <span class="font-mono text-slate-200">{{ config.images.reference_images }} prior illustrations</span>
+                    </div>
+
+                    <div>
+                        <span class="text-slate-500 block">Max Retries:</span>
+                        <span class="font-mono text-slate-200">{{ config.retry.max_attempts }} attempts (exponential backoff)</span>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-800 text-[11px] text-slate-500">
+                    To modify provider models or PDF layout dimensions, edit <code class="text-slate-400">config.yaml</code> in the project directory.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

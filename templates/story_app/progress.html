@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+
+{% block title %}Generating: {{ story.title }} - Storybook Studio{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8" id="progress-container">
+
+    <!-- Header Section -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-panel rounded-3xl p-6 sm:p-8 border border-slate-800">
+        <div class="space-y-1">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-xs font-semibold text-indigo-300">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                <span id="header-status-badge">Processing Pipeline</span>
+            </div>
+            <h1 class="font-display font-bold text-2xl sm:text-3xl text-white tracking-tight" id="story-title-heading">
+                {{ story.title }}
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-400 italic" id="concept-subtitle">
+                "{{ story.concept }}"
+            </p>
+        </div>
+
+        <div class="flex items-center space-x-3" id="header-actions">
+            {% if story.state.is_complete %}
+                <a href="{% url 'story_reader' story.story_id %}" class="inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:scale-105 transition-all shadow-lg shadow-emerald-950/40">
+                    <i data-lucide="book-open" class="w-4 h-4 mr-2"></i> Read Storybook
+                </a>
+            {% else %}
+                <div class="flex items-center space-x-2 text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl">
+                    <i data-lucide="loader" class="w-4 h-4 animate-spin"></i>
+                    <span id="live-indicator">Live Generating...</span>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Pipeline Stage Progress Tracker -->
+    <div class="glass-panel rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-6">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 text-fuchsia-400"></i> Generation Stages
+        </h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4" id="stages-container">
+            <!-- Stage 1: Story Text -->
+            <div class="stage-step p-4 rounded-2xl border transition-all duration-300 {% if story.state.story_generated %}bg-emerald-950/30 border-emerald-500/40 text-emerald-300{% elif story.state.status == 'generating_story' %}bg-amber-950/30 border-amber-500/40 text-amber-300 shadow-lg shadow-amber-950/40 animate-pulse{% else %}bg-slate-900/60 border-slate-800 text-slate-400{% endif %}" id="stage-story">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider">Step 1</span>
+                    <i data-lucide="{% if story.state.story_generated %}check-circle{% elif story.state.status == 'generating_story' %}loader-2{% else %}file-text{% endif %}" class="w-4 h-4 {% if story.state.status == 'generating_story' %}animate-spin{% endif %}"></i>
+                </div>
+                <div class="font-display font-semibold text-sm text-white">Story Writing</div>
+                <div class="text-xs opacity-75 mt-1">Plot & Structured Pages</div>
+            </div>
+
+            <!-- Stage 2: Character Bible -->
+            <div class="stage-step p-4 rounded-2xl border transition-all duration-300 {% if story.state.character_bible_generated %}bg-emerald-950/30 border-emerald-500/40 text-emerald-300{% elif story.state.story_generated and not story.state.character_bible_generated %}bg-amber-950/30 border-amber-500/40 text-amber-300 shadow-lg shadow-amber-950/40 animate-pulse{% else %}bg-slate-900/60 border-slate-800 text-slate-400{% endif %}" id="stage-bible">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider">Step 2</span>
+                    <i data-lucide="{% if story.state.character_bible_generated %}check-circle{% elif story.state.story_generated and not story.state.character_bible_generated %}loader-2{% else %}users{% endif %}" class="w-4 h-4"></i>
+                </div>
+                <div class="font-display font-semibold text-sm text-white">Character Bible</div>
+                <div class="text-xs opacity-75 mt-1">Visual Consistency Lock</div>
+            </div>
+
+            <!-- Stage 3: Illustrations -->
+            <div class="stage-step p-4 rounded-2xl border transition-all duration-300 {% if story.state.all_images_generated %}bg-emerald-950/30 border-emerald-500/40 text-emerald-300{% elif story.state.status == 'generating_images' %}bg-amber-950/30 border-amber-500/40 text-amber-300 shadow-lg shadow-amber-950/40 animate-pulse{% else %}bg-slate-900/60 border-slate-800 text-slate-400{% endif %}" id="stage-images">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider">Step 3</span>
+                    <i data-lucide="{% if story.state.all_images_generated %}check-circle{% elif story.state.status == 'generating_images' %}loader-2{% else %}image{% endif %}" class="w-4 h-4 {% if story.state.status == 'generating_images' %}animate-spin{% endif %}"></i>
+                </div>
+                <div class="font-display font-semibold text-sm text-white">Illustrating</div>
+                <div class="text-xs opacity-75 mt-1" id="images-stage-text">Page by Page</div>
+            </div>
+
+            <!-- Stage 4: PDF Rendering -->
+            <div class="stage-step p-4 rounded-2xl border transition-all duration-300 {% if story.state.pdf_generated %}bg-emerald-950/30 border-emerald-500/40 text-emerald-300{% elif story.state.status == 'rendering_pdf' %}bg-amber-950/30 border-amber-500/40 text-amber-300 shadow-lg shadow-amber-950/40 animate-pulse{% else %}bg-slate-900/60 border-slate-800 text-slate-400{% endif %}" id="stage-pdf">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider">Step 4</span>
+                    <i data-lucide="{% if story.state.pdf_generated %}check-circle{% elif story.state.status == 'rendering_pdf' %}loader-2{% else %}file-check{% endif %}" class="w-4 h-4 {% if story.state.status == 'rendering_pdf' %}animate-spin{% endif %}"></i>
+                </div>
+                <div class="font-display font-semibold text-sm text-white">PDF Book</div>
+                <div class="text-xs opacity-75 mt-1">Layout & Typography</div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="space-y-2 pt-2">
+            <div class="flex justify-between text-xs text-slate-400">
+                <span id="progress-status-label">
+                    {% if story.state.is_complete %}Generation Complete!{% else %}Working in background...{% endif %}
+                </span>
+                <span id="progress-percentage-label" class="font-semibold text-fuchsia-400">0%</span>
+            </div>
+            <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5">
+                <div id="progress-bar-fill" class="h-full bg-gradient-to-r from-fuchsia-600 via-pink-500 to-indigo-500 rounded-full transition-all duration-500" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <!-- Error Alert if any -->
+        <div id="error-box" class="p-4 rounded-2xl bg-rose-950/60 border border-rose-800 text-rose-200 text-xs {% if not story.state.last_error %}hidden{% endif %}">
+            <div class="font-bold flex items-center gap-2 mb-1">
+                <i data-lucide="alert-triangle" class="w-4 h-4"></i> Error occurred:
+            </div>
+            <p id="error-message-text">{{ story.state.last_error }}</p>
+        </div>
+    </div>
+
+    <!-- Live Gallery: Pages Appearing Live -->
+    <div class="space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="font-display font-bold text-xl text-white flex items-center gap-2">
+                <i data-lucide="gallery-thumbnails" class="w-5 h-5 text-fuchsia-400"></i> Page Illustrations Live Feed
+            </h2>
+            <span class="text-xs text-slate-400" id="pages-count-badge">{{ story.pages|length }} pages total</span>
+        </div>
+
+        <div id="live-pages-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {% for page in story.pages %}
+            <div class="live-page-card glass-panel rounded-2xl p-3 border border-slate-800 flex flex-col justify-between space-y-2" id="page-card-{{ page.page_number }}">
+                <div class="relative aspect-square w-full bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center">
+                    {% if page.has_image %}
+                        <img src="{{ page.image_url }}" alt="Page {{ page.page_number }}" class="w-full h-full object-cover">
+                    {% else %}
+                        <div class="text-center p-3 text-slate-600">
+                            <i data-lucide="loader" class="w-6 h-6 animate-spin mx-auto mb-1 text-slate-600"></i>
+                            <span class="text-[10px] uppercase font-semibold tracking-wider">Pending</span>
+                        </div>
+                    {% endif %}
+                    <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-900/80 text-white border border-slate-700/60">
+                        P. {{ page.page_number }}
+                    </span>
+                </div>
+                <p class="text-[11px] text-slate-400 line-clamp-2 italic">"{{ page.text }}"</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const STORY_ID = "{{ story_id }}";
+    let isComplete = {% if story.state.is_complete %}true{% else %}false{% endif %};
+
+    function updateProgressUI(data) {
+        if (!data) return;
+
+        if (data.title && data.title !== STORY_ID) {
+            document.getElementById("story-title-heading").textContent = data.title;
+        }
+
+        // Calculate progress percentage
+        let progress = 10;
+        if (data.story_generated) progress = 25;
+        if (data.character_bible_generated) progress = 35;
+
+        const totalPages = data.total_pages || (data.pages ? data.pages.length : 12);
+        let imagesDone = 0;
+        if (data.pages) {
+            imagesDone = data.pages.filter(p => p.has_image).length;
+        }
+        if (totalPages > 0) {
+            progress = Math.round(35 + (imagesDone / totalPages) * 55);
+        }
+        if (data.pdf_generated || data.is_complete) {
+            progress = 100;
+        }
+
+        document.getElementById("progress-bar-fill").style.width = `${progress}%`;
+        document.getElementById("progress-percentage-label").textContent = `${progress}%`;
+
+        // Update stages
+        const stageStory = document.getElementById("stage-story");
+        const stageBible = document.getElementById("stage-bible");
+        const stageImages = document.getElementById("stage-images");
+        const stagePdf = document.getElementById("stage-pdf");
+
+        if (data.story_generated) {
+            stageStory.className = "stage-step p-4 rounded-2xl border transition-all duration-300 bg-emerald-950/30 border-emerald-500/40 text-emerald-300";
+        }
+        if (data.character_bible_generated) {
+            stageBible.className = "stage-step p-4 rounded-2xl border transition-all duration-300 bg-emerald-950/30 border-emerald-500/40 text-emerald-300";
+        }
+        if (imagesDone === totalPages && totalPages > 0) {
+            stageImages.className = "stage-step p-4 rounded-2xl border transition-all duration-300 bg-emerald-950/30 border-emerald-500/40 text-emerald-300";
+            document.getElementById("images-stage-text").textContent = `All ${totalPages} Done!`;
+        } else if (imagesDone > 0) {
+            stageImages.className = "stage-step p-4 rounded-2xl border transition-all duration-300 bg-amber-950/30 border-amber-500/40 text-amber-300 shadow-lg shadow-amber-950/40 animate-pulse";
+            document.getElementById("images-stage-text").textContent = `Page ${imagesDone}/${totalPages}`;
+        }
+        if (data.pdf_generated || data.is_complete) {
+            stagePdf.className = "stage-step p-4 rounded-2xl border transition-all duration-300 bg-emerald-950/30 border-emerald-500/40 text-emerald-300";
+        }
+
+        // Render page cards if available
+        if (data.pages && data.pages.length > 0) {
+            const grid = document.getElementById("live-pages-grid");
+            document.getElementById("pages-count-badge").textContent = `${data.pages.length} pages total`;
+
+            data.pages.forEach(p => {
+                let card = document.getElementById(`page-card-${p.page_number}`);
+                if (!card) {
+                    card = document.createElement("div");
+                    card.id = `page-card-${p.page_number}`;
+                    card.className = "live-page-card glass-panel rounded-2xl p-3 border border-slate-800 flex flex-col justify-between space-y-2";
+                    grid.appendChild(card);
+                }
+
+                card.innerHTML = `
+                    <div class="relative aspect-square w-full bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center">
+                        ${p.has_image ? `<img src="${p.image_url}" alt="Page ${p.page_number}" class="w-full h-full object-cover">` : `
+                            <div class="text-center p-3 text-slate-600">
+                                <i data-lucide="loader" class="w-6 h-6 animate-spin mx-auto mb-1 text-slate-600"></i>
+                                <span class="text-[10px] uppercase font-semibold tracking-wider">Pending</span>
+                            </div>
+                        `}
+                        <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-900/80 text-white border border-slate-700/60">
+                            P. ${p.page_number}
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 line-clamp-2 italic">"${p.text || ''}"</p>
+                `;
+            });
+            lucide.createIcons();
+        }
+
+        // Check error
+        if (data.last_error) {
+            const errBox = document.getElementById("error-box");
+            errBox.classList.remove("hidden");
+            document.getElementById("error-message-text").textContent = data.last_error;
+        }
+
+        // Check completion
+        if (data.is_complete && !isComplete) {
+            isComplete = true;
+            document.getElementById("progress-status-label").textContent = "All Done! Ready to Read.";
+            const headerActions = document.getElementById("header-actions");
+            headerActions.innerHTML = `
+                <a href="/story/${STORY_ID}/" class="inline-flex items-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:scale-105 transition-all shadow-lg shadow-emerald-950/50 animate-bounce">
+                    <i data-lucide="book-open" class="w-4 h-4 mr-2"></i> Open Storybook
+                </a>
+            `;
+            lucide.createIcons();
+        }
+    }
+
+    // Connect Server-Sent Events (SSE)
+    function initSSE() {
+        const evtSource = new EventSource(`/story/${STORY_ID}/events/`);
+
+        evtSource.onmessage = (event) => {
+            try {
+                const payload = JSON.parse(event.data);
+                fetchStatus();
+            } catch (e) {
+                console.error("SSE parse error", e);
+            }
+        };
+
+        evtSource.onerror = () => {
+            console.log("SSE disconnected, polling fallback active");
+        };
+    }
+
+    function fetchStatus() {
+        fetch(`/story/${STORY_ID}/status/`)
+            .then(res => res.json())
+            .then(data => {
+                updateProgressUI(data);
+            })
+            .catch(err => console.error("Poll error", err));
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        fetchStatus();
+        initSSE();
+        // Polling interval backup
+        const pollInterval = setInterval(() => {
+            if (!isComplete) {
+                fetchStatus();
+            } else {
+                clearInterval(pollInterval);
+            }
+        }, 4000);
+    });
+</script>
+{% endblock %}

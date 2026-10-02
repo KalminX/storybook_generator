@@ -1,0 +1,4 @@
+# One story concept per line. Blank lines and lines starting with "#" are ignored.
+A young fox discovers a hidden garden.
+A little girl learns why the stars appear at night.
+A nervous penguin learns to swim.

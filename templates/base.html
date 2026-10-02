@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Storybook Studio{% endblock %}</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+                        serif: ['"Playfair Display"', 'Georgia', 'serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- GSAP CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        .ui-panel {
+            background-color: #0f172a;
+            border: 1px solid #1e293b;
+        }
+        .book-shadow {
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+        .paper-left {
+            box-shadow: inset -12px 0 24px -10px rgba(0, 0, 0, 0.6);
+        }
+        .paper-right {
+            box-shadow: inset 12px 0 24px -10px rgba(0, 0, 0, 0.6);
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-full flex flex-col bg-slate-950 font-sans antialiased text-slate-100 selection:bg-sky-500 selection:text-white">
+
+    <!-- Top Navigation -->
+    <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14">
+                <!-- Logo & Brand -->
+                <div class="flex items-center space-x-6">
+                    <a href="{% url 'story_index' %}" class="flex items-center space-x-2.5 group">
+                        <div class="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-sm group-hover:bg-sky-500 transition-colors">
+                            <i data-lucide="book-open" class="w-4 h-4"></i>
+                        </div>
+                        <span class="font-semibold text-base tracking-tight text-white">
+                            Storybook Studio
+                        </span>
+                    </a>
+
+                    <nav class="hidden md:flex items-center space-x-1">
+                        <a href="{% url 'story_index' %}" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                            Library
+                        </a>
+                        <a href="{% url 'settings' %}" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                            Style & Settings
+                        </a>
+                    </nav>
+                </div>
+
+                <!-- Right Action -->
+                <div class="flex items-center space-x-3">
+                    <a href="{% url 'story_create' %}" class="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 active:bg-sky-700 shadow-sm transition-all">
+                        <i data-lucide="plus" class="w-3.5 h-3.5 mr-1.5"></i>
+                        <span>New Story</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Global Messages / Alerts -->
+    {% if messages %}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 w-full">
+        {% for message in messages %}
+        <div class="flex items-center p-3 mb-2 rounded-lg border {% if message.tags == 'error' %}bg-rose-950/70 border-rose-800 text-rose-200{% else %}bg-emerald-950/70 border-emerald-800 text-emerald-200{% endif %} text-xs font-medium">
+            <i data-lucide="{% if message.tags == 'error' %}alert-circle{% else %}check-circle-2{% endif %}" class="w-4 h-4 mr-2 flex-shrink-0"></i>
+            <span class="flex-1">{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Clean Footer -->
+    <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
+        <p>Storybook Generator &middot; Illustrated Children's Picture Book Studio</p>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+    </script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

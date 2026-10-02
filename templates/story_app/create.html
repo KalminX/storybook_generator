@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}New Story - Storybook Studio{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div class="space-y-1">
+        <h1 class="text-xl font-bold text-white tracking-tight">Create New Picture Book</h1>
+        <p class="text-xs text-slate-400">Enter a short premise. The Gemini AI engine generates the narrative, character designs, and illustrations.</p>
+    </div>
+
+    <!-- Form Panel -->
+    <div class="rounded-xl bg-slate-900 border border-slate-800 p-6 space-y-6">
+        <form method="POST" action="{% url 'story_create' %}" id="story-form" class="space-y-5">
+            {% csrf_token %}
+
+            <!-- Prompt Input -->
+            <div class="space-y-2">
+                <label for="concept" class="block text-xs font-semibold text-slate-200">
+                    Story Concept / Premise <span class="text-sky-400">*</span>
+                </label>
+                <textarea 
+                    name="concept" 
+                    id="concept" 
+                    rows="3" 
+                    required
+                    placeholder="e.g. A young fox discovers a hidden garden behind an old stone wall."
+                    class="w-full px-3.5 py-2.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-sky-500 transition-all resize-none leading-relaxed"></textarea>
+            </div>
+
+            <!-- Concept Suggestions -->
+            <div class="space-y-2">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Example Concept Prompts:</span>
+                <div class="flex flex-wrap gap-1.5" id="suggestion-chips">
+                    <button type="button" class="chip px-2.5 py-1 rounded-md bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition-all text-left">
+                        A shy fox who wants to become a stargazing astronomer
+                    </button>
+                    <button type="button" class="chip px-2.5 py-1 rounded-md bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition-all text-left">
+                        A nervous penguin who invents rocket skates to learn swimming
+                    </button>
+                    <button type="button" class="chip px-2.5 py-1 rounded-md bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition-all text-left">
+                        A tiny cloud afraid of heights that makes rainbow puddles
+                    </button>
+                    <button type="button" class="chip px-2.5 py-1 rounded-md bg-slate-950 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition-all text-left">
+                        A little owl who stays awake during the daytime to explore flowers
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Style Specification Note -->
+            <div class="p-3.5 rounded-lg bg-slate-950 border border-slate-800 flex items-start space-x-3 text-xs">
+                <i data-lucide="info" class="w-4 h-4 text-sky-400 flex-shrink-0 mt-0.5"></i>
+                <div class="text-slate-400 space-y-1">
+                    <span class="font-medium text-slate-200">Active Style Spec:</span>
+                    <p>Audience guidelines, art style, and typography will follow your rules in <a href="{% url 'settings' %}" class="text-sky-400 hover:underline">Style & Settings</a>.</p>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="pt-2 flex items-center justify-end space-x-3">
+                <a href="{% url 'story_index' %}" class="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors">
+                    Cancel
+                </a>
+                <button type="submit" id="submit-btn" class="px-5 py-2 rounded-lg text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 active:bg-sky-700 shadow-sm transition-all flex items-center space-x-1.5">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                    <span>Generate Storybook</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const conceptTextarea = document.getElementById("concept");
+        const chips = document.querySelectorAll(".chip");
+        const storyForm = document.getElementById("story-form");
+        const submitBtn = document.getElementById("submit-btn");
+
+        chips.forEach(chip => {
+            chip.addEventListener("click", () => {
+                conceptTextarea.value = chip.textContent.trim();
+                conceptTextarea.focus();
+            });
+        });
+
+        storyForm.addEventListener("submit", () => {
+            submitBtn.disabled = true;
+            submitBtn.classList.add("opacity-75", "cursor-not-allowed");
+            submitBtn.innerHTML = `
+                <svg class="animate-spin -ml-0.5 mr-2 h-3.5 w-3.5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Starting Pipeline...</span>
+            `;
+        });
+    });
+</script>
+{% endblock %}

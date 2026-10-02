@@ -1,0 +1,9 @@
+/* Custom CSS for Storybook Studio */
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+    animation: float 4s ease-in-out infinite;
+}
