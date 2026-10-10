@@ -223,3 +223,16 @@ scripts/                 try_story.py / try_page.py: cheap one-story / one-page 
 ```bash
 .venv/bin/python -m pytest -q
 ```
+
+
+## 🖼️ Application Screenshots
+
+| Character & Story Premise Creator | Multi-Scene Storyboard & Illustration |
+|:---:|:---:|
+| ![Story Setup](screenshots/01_story_setup.png) | ![Scene Generation](screenshots/02_scene_generation.png) |
+| *Theme selection, moral focus, age targeting, & character design* | *Consistent character art generation and narrative pacing* |
+
+| Interactive Flipbook Reader | High-Resolution Print Output |
+|:---:|:---:|
+| ![Interactive Reader](screenshots/03_interactive_reader.png) | ![Sample Page](screenshots/04_sample_page.png) |
+| *In-browser reader with audio narration support* | *300 DPI ready PDF storybook layout and typography* |
